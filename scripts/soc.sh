@@ -16,14 +16,25 @@ wait_docker() {
 case "$1" in
   up)
     wait_docker
-    echo "[*] Starting Wazuh SIEM stack..."
-    (cd "$ROOT/infra/single-node" && docker compose up -d)
+    # Detection MUST come up first: it (re)creates eve.json / audit.log. If the SIEM
+    # manager starts/keeps running before that, its logcollector follows a stale file
+    # handle and stops seeing new alerts. So: detection -> SIEM -> re-attach manager.
     echo "[*] Starting Detection stack..."
     (cd "$ROOT/detection" && docker compose up -d)
+    echo "[*] Starting Wazuh SIEM stack..."
+    (cd "$ROOT/infra/single-node" && docker compose up -d)
+    echo "[*] Re-attaching manager logcollector to current detection logs..."
+    docker restart single-node-wazuh.manager-1 >/dev/null 2>&1 || true
     echo "[*] SOAR webhook (LaunchAgent):"
     launchctl list | grep -q sentrix && echo "  already loaded" || \
       launchctl load ~/Library/LaunchAgents/com.sentrix.soar-webhook.plist
     echo "[*] Done. Dashboard: https://localhost:443  (wait ~1 min for indexer)"
+    ;;
+  refresh)
+    # Use after restarting the detection stack: re-attach the SIEM to fresh log files.
+    echo "[*] Re-attaching manager logcollector..."
+    docker restart single-node-wazuh.manager-1 >/dev/null 2>&1 || true
+    echo "[*] Done."
     ;;
   down)
     (cd "$ROOT/detection" && docker compose down)
@@ -43,5 +54,5 @@ case "$1" in
     curl -s "http://127.0.0.1:5000/api/alerts?n=20" || true
     ;;
   *)
-    echo "Usage: $0 {up|down|status|attack|logs}"; exit 1 ;;
+    echo "Usage: $0 {up|down|status|refresh|attack|logs}"; exit 1 ;;
 esac
