@@ -28,7 +28,14 @@ case "$1" in
     echo "[*] SOAR webhook (LaunchAgent):"
     launchctl list | grep -q sentrix && echo "  already loaded" || \
       launchctl load ~/Library/LaunchAgents/com.sentrix.soar-webhook.plist
-    echo "[*] Done. Dashboard: https://localhost:443  (wait ~1 min for indexer)"
+    printf "[*] Waiting for Wazuh API to be ready (avoids dashboard axios errors)"
+    n=0
+    until curl -sk -m6 -u 'wazuh-wui:MyS3cr37P450r.*-' -X POST \
+        "https://localhost:55000/security/user/authenticate?raw=true" 2>/dev/null | grep -q . || [ $n -ge 30 ]; do
+      sleep 3; n=$((n+1)); printf .
+    done
+    echo " ready"
+    echo "[*] Done. Dashboard: https://localhost:443  (admin / SecretPassword)"
     ;;
   refresh)
     # Use after restarting the detection stack: re-attach the SIEM to fresh log files.
