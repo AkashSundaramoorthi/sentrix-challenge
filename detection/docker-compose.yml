@@ -1,0 +1,49 @@
+# Sentrix Mini SOC — Layer 1: Perimeter & Detection (Member 2)
+# DVWA (target)  <--  ModSecurity/Nginx (WAF)  <--  attacker (host: nmap/hydra/sqlmap)
+# Suricata (IDS) shares the WAF network namespace so it sees all attack traffic.
+# WAF + Suricata write logs to ./logs/, which the Wazuh manager reads (see infra override).
+services:
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    container_name: soc-dvwa
+    restart: unless-stopped
+    networks: [socnet]
+    # not published directly — only the WAF is exposed
+
+  waf:
+    image: owasp/modsecurity-crs:nginx
+    container_name: soc-waf
+    restart: unless-stopped
+    depends_on: [dvwa]
+    environment:
+      - BACKEND=http://dvwa:80
+      - MODSEC_RULE_ENGINE=On            # actively block, not just detect
+      - PARANOIA=1
+      - MODSEC_AUDIT_LOG=/var/log/modsec/audit.log
+      - MODSEC_AUDIT_LOG_FORMAT=JSON
+      - MODSEC_AUDIT_ENGINE=RelevantOnly
+      - NGINX_ALWAYS_TLS_REDIRECT=off
+    ports:
+      - "8080:8080"                       # attacker hits http://localhost:8080
+    volumes:
+      - ./logs/modsec:/var/log/modsec
+      - ./logs/nginx:/var/log/nginx
+    networks: [socnet]
+
+  suricata:
+    image: jasonish/suricata:latest
+    container_name: soc-suricata
+    restart: unless-stopped
+    depends_on: [waf]
+    network_mode: "service:waf"           # share WAF's netns -> sees all attack traffic
+    cap_add: [NET_ADMIN, NET_RAW, SYS_NICE]
+    volumes:
+      - ./suricata/suricata.yaml:/etc/suricata/suricata.yaml
+      - ./suricata/rules:/var/lib/suricata/rules
+      - ./logs/suricata:/var/log/suricata
+    command: ["-i", "eth0", "-v"]
+
+networks:
+  socnet:
+    name: soc_socnet
+    driver: bridge

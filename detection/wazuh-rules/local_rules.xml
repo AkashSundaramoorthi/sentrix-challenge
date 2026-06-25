@@ -1,0 +1,23 @@
+<!-- Sentrix Mini SOC — custom correlation/escalation rules.
+     Installed at /var/ossec/etc/rules/local_rules.xml on the manager. -->
+<group name="sentrix,">
+
+  <!-- IDS: escalate our custom Suricata web-attack signatures (sid 1000001-1000099)
+       so they cross the level>=10 threshold and trigger the SOAR webhook. -->
+  <rule id="100100" level="12">
+    <if_sid>86601</if_sid>
+    <field name="alert.signature_id">^10000\d\d$</field>
+    <description>Sentrix IDS: high-severity web attack - $(alert.signature)</description>
+    <group>ids,suricata,web_attack,attack,soar_trigger,</group>
+  </rule>
+
+  <!-- WAF: ModSecurity blocked a request (separate source from the IDS).
+       is_interrupted=true means CRS actively blocked it -> level 10, triggers SOAR. -->
+  <rule id="100110" level="10">
+    <decoded_as>json</decoded_as>
+    <field name="transaction.is_interrupted">true</field>
+    <description>Sentrix WAF: ModSecurity BLOCKED attack from $(transaction.client_ip)</description>
+    <group>waf,modsecurity,web_attack,attack,soar_trigger,</group>
+  </rule>
+
+</group>

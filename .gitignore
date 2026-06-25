@@ -1,0 +1,15 @@
+# OS junk
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+soar/webhook_backend/.venv/
+
+# Runtime data & logs (regenerated at run time, not source)
+soar/webhook_backend/data/
+detection/logs/
+
+# Temporary live-config export (source of truth is config/wazuh_cluster/wazuh_manager.conf)
+infra/single-node/ossec.conf
+infra/single-node/config/wazuh_cluster/wazuh_manager.conf.bak*

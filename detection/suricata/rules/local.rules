@@ -1,0 +1,19 @@
+# Sentrix Mini SOC — custom Suricata IDS rules (deterministic for the 3 demo attacks)
+# sids 1000001-1000099 reserved for local rules.
+
+# --- SQL injection (SQLMap / manual) ---
+alert http any any -> any any (msg:"SOC IDS - SQL Injection attempt (UNION SELECT)"; flow:established,to_server; http.uri; content:"union"; nocase; content:"select"; nocase; distance:0; classtype:web-application-attack; sid:1000001; rev:1;)
+alert http any any -> any any (msg:"SOC IDS - SQL Injection attempt (OR 1=1)"; flow:established,to_server; http.uri; content:"or 1=1"; nocase; classtype:web-application-attack; sid:1000002; rev:1;)
+alert http any any -> any any (msg:"SOC IDS - SQLMap scanner detected (User-Agent)"; flow:established,to_server; http.user_agent; content:"sqlmap"; nocase; classtype:web-application-attack; sid:1000003; rev:1;)
+
+# --- Recon / scanners ---
+alert http any any -> any any (msg:"SOC IDS - Nmap/Nikto scanner User-Agent"; flow:established,to_server; http.user_agent; content:"Nmap"; nocase; classtype:attempted-recon; sid:1000004; rev:1;)
+alert http any any -> any any (msg:"SOC IDS - Nikto scanner User-Agent"; flow:established,to_server; http.user_agent; content:"Nikto"; nocase; classtype:attempted-recon; sid:1000009; rev:1;)
+
+# --- XSS / traversal ---
+alert http any any -> any any (msg:"SOC IDS - XSS attempt (script tag in URI)"; flow:established,to_server; http.uri; content:"<script"; nocase; classtype:web-application-attack; sid:1000005; rev:1;)
+alert http any any -> any any (msg:"SOC IDS - Path traversal attempt"; flow:established,to_server; http.uri; content:"../"; classtype:web-application-attack; sid:1000007; rev:1;)
+
+# --- Brute force (Hydra) against the login page ---
+alert http any any -> any any (msg:"SOC IDS - Hydra brute force User-Agent"; flow:established,to_server; http.user_agent; content:"Hydra"; nocase; classtype:attempted-user; sid:1000006; rev:1;)
+alert http any any -> any any (msg:"SOC IDS - Possible HTTP login brute force (rapid POST to login)"; flow:established,to_server; http.method; content:"POST"; http.uri; content:"login"; nocase; detection_filter:track by_src, count 10, seconds 20; classtype:attempted-user; sid:1000008; rev:1;)
